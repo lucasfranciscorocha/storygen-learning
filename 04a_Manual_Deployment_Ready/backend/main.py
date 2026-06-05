@@ -4,7 +4,14 @@ import json
 import asyncio
 import logging
 from pathlib import Path
-from dotenv import load_dotenv
+
+# Try to load dotenv for local development, but don't fail if missing in production
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    # In Cloud Run, environment variables are provided by the platform
+    load_dotenv = None
 
 from google.genai.types import Content, Part
 from google.adk.runners import InMemoryRunner
@@ -18,9 +25,6 @@ from contextlib import asynccontextmanager
 
 from story_agent.story_text_agent import story_agent
 from story_agent.story_image_agent import DirectImageAgent
-
-# Load environment variables
-load_dotenv()
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -60,8 +64,6 @@ use_vertexai = os.getenv("GOOGLE_GENAI_USE_VERTEXAI", "FALSE")
 logger.info(f"🔑 API Key available: {'Yes' if api_key else 'No'}")
 logger.info(f"🔑 API Key length: {len(api_key) if api_key else 0}")
 logger.info(f"🎯 Using Vertex AI: {use_vertexai}")
-
-
 
 # Check story_agent initialization
 if story_agent:
@@ -219,7 +221,7 @@ async def run_two_agent_workflow(websocket: WebSocket, user_id: str, keywords: s
         logger.error(f"❌ Story generation failed for user {user_id}: {e}")
         import traceback
         logger.error(f"📋 Full story generation traceback: {traceback.format_exc()}")
-        await websocket.send_text(json.dumps({"type": "error", "message": f"Story generation failed: {str(e)}"}))
+        await websocket.send_text(json.dumps({"type": "error", "message": f"Story generation failed: {str(e)}", "data": str(e)}))
         return
 
     # Step 2: Generate images using DirectImageAgent
@@ -243,6 +245,12 @@ async def run_two_agent_workflow(websocket: WebSocket, user_id: str, keywords: s
             try:
                 logger.info(f"🖼️ Generating image for scene {scene_index + 1}: {scene.get('title', 'Unknown')}")
                 
+                # Send a heartbeat to keep the WebSocket alive during heavy AI processing
+                await websocket.send_text(json.dumps({
+                    "type": "processing",
+                    "message": f"Painting scene {scene_index + 1}..."
+                }))
+
                 # Use DirectImageAgent to generate image with character descriptions
                 result_data = await direct_image_agent.generate_image_from_description(
                     scene_description,
@@ -394,5 +402,11 @@ async def root():
 
 if __name__ == "__main__":
     import uvicorn
-    port = int(os.getenv("PORT", 8000))  # Use PORT env var from Cloud Run, default to 8000
-    uvicorn.run(app, host="0.0.0.0", port=port) 
+    # Cloud Run provides the PORT environment variable
+    port = int(os.environ.get("PORT", 8080))
+    
+    logger.info("========================================")
+    logger.info(f"🚀 StoryGen Backend active on port: {port}")
+    logger.info(f"🌍 Binding to host 0.0.0.0")
+    logger.info("========================================")
+    uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")
