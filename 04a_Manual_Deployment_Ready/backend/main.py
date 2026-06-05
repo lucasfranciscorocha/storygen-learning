@@ -61,9 +61,11 @@ logger.info(f"🔧 Project ID: {project_id}")
 # Debug: Check API key availability
 api_key = os.getenv("GOOGLE_API_KEY")
 use_vertexai = os.getenv("GOOGLE_GENAI_USE_VERTEXAI", "FALSE")
+cloud_location = os.getenv("GOOGLE_CLOUD_LOCATION") or os.getenv("GOOGLE_CLOUD_REGION", "us-central1")
 logger.info(f"🔑 API Key available: {'Yes' if api_key else 'No'}")
 logger.info(f"🔑 API Key length: {len(api_key) if api_key else 0}")
 logger.info(f"🎯 Using Vertex AI: {use_vertexai}")
+logger.info(f"📍 Cloud Location: {cloud_location}")
 
 # Check story_agent initialization
 if story_agent:

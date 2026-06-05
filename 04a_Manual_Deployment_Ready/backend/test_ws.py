@@ -34,11 +34,13 @@ async def test_story():
             while True:
                 response = await websocket.recv()
                 data = json.loads(response)
-                print(f"📦 Event: {data.get('type')} | Content Length: {len(str(data.get('data', '')))}")
                 
                 if data.get("type") == "error":
-                    print(f"❌ Server Error: {data.get('message') or data.get('error') or data}")
+                    print(f"❌ Server Error: {data.get('message') or data.get('error') or 'Unknown error'}")
+                    if 'data' in data: print(f"🔍 Detail: {data['data']}")
                     break
+
+                print(f"📦 Event: {data.get('type')} | Content Length: {len(str(data.get('data', '')))}")
 
                 if data.get("type") == "turn_complete":
                     print("✨ Story and images generated successfully!")
